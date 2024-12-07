@@ -1,0 +1,34 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+}
+
+#userInfo {
+    margin-top: 20px;
+    border: 1px solid #ccc;
+    padding: 20px;
+    width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+input[type="text"], input[type="number"] {
+    padding: 5px;
+    margin: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+button {
+    padding: 8px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 3px;
+    margin: 5px;
+}
+
+button:hover {
+    background-color: #3e8e41;
+}

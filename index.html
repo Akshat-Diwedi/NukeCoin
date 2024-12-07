@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nukecoin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Nukecoin (Educational Demo)</h1>
+
+    <div id="authContainer">
+        <button id="signInBtn">Sign In with Google</button>
+    </div>
+
+    <div id="userInfo" style="display: none;">
+        <h2>Your Wallet</h2>
+        <p>Address: <span id="userAddress"></span></p>
+        <p>Balance: <span id="userBalance"></span> Nukecoin</p>
+
+        <h2>Mining</h2>
+        <p>Problem: <span id="miningProblem"></span></p>
+        <input type="text" id="solutionInput" placeholder="Enter solution">
+        <button id="mineButton">Mine</button>
+        <p id="miningResult"></p>
+
+        <h2>Send Nukecoin</h2>
+        <input type="text" id="recipientAddress" placeholder="Recipient Address">
+        <input type="number" id="amount" placeholder="Amount">
+        <button id="sendButton">Send</button>
+        <p id="transactionResult"></p>
+
+        <button id="signOutBtn">Sign Out</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
