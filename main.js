@@ -10,8 +10,6 @@ const firebaseConfig = {
     measurementId: "G-2MCL5LHZW9"
   };
 
-
-
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -45,15 +43,23 @@ function generateMiningProblem() {
     const difficulty = 2; // Adjust for harder problems
     const problem = {
         data: Math.random().toString(36).substr(2, 10),
-        target: '0'.repeat(difficulty)
+        target: '0'.repeat(difficulty),
+        nonce: 0 // Add a nonce field
     };
-    miningProblem.textContent = JSON.stringify(problem);
+
+    // Update the mining problem on the UI
+    miningProblem.textContent = `Find a nonce such that SHA256(data + nonce) starts with ${problem.target}`;
+
+    currentProblem = problem; // Store the current problem
     return problem;
 }
 
-// Verify a solution to the mining problem (using SHA256 - NOT SECURE enough for real use)
+// Verify a solution to the mining problem (using SHA256)
 function verifySolution(problem, solution) {
+    // Concatenate the problem data with the provided solution (nonce)
     const hash = CryptoJS.SHA256(problem.data + solution).toString();
+
+    // Check if the hash starts with the target string
     return hash.startsWith(problem.target);
 }
 
@@ -91,24 +97,26 @@ auth.onAuthStateChanged(user => {
         signInBtn.style.display = "none";
         userInfo.style.display = "block";
 
-        let userAddressValue = generateWalletAddress();
-        userAddress.textContent = userAddressValue;
-
         // Get user data (or create if it doesn't exist)
         const userRef = database.ref('users/' + user.uid);
         userRef.once('value', (snapshot) => {
             if (!snapshot.exists()) {
+                // New user: generate address ONCE and store it
+                const userAddressValue = generateWalletAddress();
                 userRef.set({
                     address: userAddressValue,
                     balance: 0, // Initial balance
                 });
+                userAddress.textContent = userAddressValue;
                 userBalance.textContent = 0;
             } else {
+                // Existing user: retrieve the address
                 const userData = snapshot.val();
-                userAddress.textContent = userData.address;
+                userAddress.textContent = userData.address; // Address is read-only
                 userBalance.textContent = userData.balance;
             }
         });
+
     } else {
         // User is signed out
         signInBtn.style.display = "block";
@@ -121,39 +129,53 @@ auth.onAuthStateChanged(user => {
 let currentProblem = null; // Keep track of the current mining problem
 
 mineButton.addEventListener('click', () => {
+    miningResult.textContent = "Mining..."; // Indicate that mining has started
+
     if (!currentProblem) {
         currentProblem = generateMiningProblem();
     }
 
-    const solution = solutionInput.value;
-    if (verifySolution(currentProblem, solution)) {
-        miningResult.textContent = "Success! You mined 7 Nukecoin.";
+    // Use a timeout to simulate mining work and allow UI updates
+    setTimeout(() => {
+        let nonce = 0;
+        while (nonce < 100000) { // Limit the number of attempts for the demo
+            if (verifySolution(currentProblem, nonce)) {
 
-        // Reward the miner (update balance in Firebase)
-        const user = auth.currentUser;
-        const userRef = database.ref('users/' + user.uid);
-        userRef.transaction((currentData) => {
-            if (currentData) {
-                currentData.balance += 7;
+                miningResult.textContent = `Success! Mined 7 Nukecoin with nonce: ${nonce}`;
+
+                // Reward the miner (update balance in Firebase)
+                const user = auth.currentUser;
+                const userRef = database.ref('users/' + user.uid);
+                userRef.transaction((currentData) => {
+                    if (currentData) {
+                        currentData.balance += 7;
+                    }
+                    return currentData;
+                });
+
+                // Add a transaction to the blockchain (simulated)
+                const transaction = {
+                    from: "network", // Coinbase transaction (reward)
+                    to: userAddress.textContent,
+                    amount: 7
+                };
+                updateBlockchain(transaction);
+
+                // Reset mining problem
+                currentProblem = null;
+                solutionInput.value = "";
+                generateMiningProblem();
+
+                return; // Exit the loop after finding a solution
             }
-            return currentData;
-        });
+            nonce++;
+        }
 
-        // Add a transaction to the blockchain (simulated)
-        const transaction = {
-            from: "network", // Coinbase transaction (reward)
-            to: userAddress.textContent,
-            amount: 7
-        };
-        updateBlockchain(transaction);
-
-        // Reset mining problem
-        currentProblem = null;
-        solutionInput.value = "";
+        // If no solution is found within the limit
+        miningResult.textContent = "Mining failed. Try again.";
+        currentProblem = null; // Reset the problem
         generateMiningProblem();
-    } else {
-        miningResult.textContent = "Incorrect solution. Try again.";
-    }
+    }, 0);
 });
 
 // --- Transaction Logic ---
