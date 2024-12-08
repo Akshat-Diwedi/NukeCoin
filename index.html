@@ -5,30 +5,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Nukecoin</h1>
+    <div class="container">
+        <h1>Nukecoin</h1>
 
-    <div id="authContainer">
-        <button id="signInBtn">Sign In with Google</button>
-    </div>
+        <div id="authContainer">
+            <button id="signInBtn" class="btn">Sign In with Google</button>
+        </div>
 
-    <div id="userInfo" style="display: none;">
-        <h2>Your Wallet</h2>
-        <p>Address: <span id="userAddress"></span></p>
-        <p>Balance: <span id="userBalance"></span> Nukecoin</p>
+        <div id="userInfo" style="display: none;">
+            <div class="wallet-info">
+                <h2>Your Wallet</h2>
+                <p>Address: <span id="userAddress" class="address"></span></p>
+                <p>Balance: <span id="userBalance"></span> Nukecoin</p>
+            </div>
 
-        <h2>Mining</h2>
-        <p>Problem: <span id="miningProblem"></span></p>
-        <input type="text" id="solutionInput" placeholder="Enter solution">
-        <button id="mineButton">Mine</button>
-        <p id="miningResult"></p>
+            <div class="mining-section">
+                <h2>Mining</h2>
+                <p id="miningProblem"></p>
+                <button id="mineButton" class="btn btn-mine">Start Mining</button>
+                <p id="miningResult"></p>
+            </div>
 
-        <h2>Send Nukecoin</h2>
-        <input type="text" id="recipientAddress" placeholder="Recipient Address">
-        <input type="number" id="amount" placeholder="Amount">
-        <button id="sendButton">Send</button>
-        <p id="transactionResult"></p>
+            <div class="transaction-section">
+                <h2>Send Nukecoin</h2>
+                <input type="text" id="recipientAddress" placeholder="Recipient Address" class="input-field">
+                <input type="number" id="amount" placeholder="Amount" class="input-field">
+                <button id="sendButton" class="btn btn-send">Send</button>
+                <p id="transactionResult"></p>
+            </div>
 
-        <button id="signOutBtn">Sign Out</button>
+            <button id="signOutBtn" class="btn">Sign Out</button>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
