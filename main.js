@@ -154,7 +154,7 @@ signOutBtn.addEventListener('click', () => {
 auth.onAuthStateChanged(user => {
     if (user) {
         // User is signed in
-        document.querySelector("authContainer").style.display = "none";
+        authContainer.style.display = "none";
         userInfo.style.display = "block";
 
         // Get user data (or create if it doesn't exist)
