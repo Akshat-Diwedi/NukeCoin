@@ -1,38 +1,39 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nukecoin</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
-        <h1>Nukecoin</h1>
+        <h1>Nuke Cryp Coin</h1>
 
         <div id="authContainer">
-            <button id="signInBtn" class="btn">Sign In with Google</button>
+            <button id="signInBtn" type="button" class="login-with-google-btn">Sign in with Google</button>
         </div>
 
         <div id="userInfo" style="display: none;">
             <div class="wallet-info">
-                <h2>Your Wallet</h2>
                 <p>Address: <span id="userAddress" class="address"></span></p>
-                <p>Balance: <span id="userBalance"></span> Nukecoin</p>
+                <p>Balance : <span id="userBalance"></span></p>
             </div>
 
             <div class="mining-section">
                 <h2>Mining</h2>
-                <p id="miningProblem"></p>
-                <button id="mineButton" class="btn btn-mine">Start Mining</button>
-                <p id="miningResult"></p>
+                <p id="miningProblem">problem</p>
+                <p id="miningResult">doodowjw</p>
+                <button id="mineButton" class="btn btn-mine">Start Mining</button><br><br>
             </div>
 
             <div class="transaction-section">
                 <h2>Send Nukecoin</h2>
                 <input type="text" id="recipientAddress" placeholder="Recipient Address" class="input-field">
                 <input type="number" id="amount" placeholder="Amount" class="input-field">
-                <button id="sendButton" class="btn btn-send">Send</button>
+                <button id="sendButton" class="btn btn-send">Send Coins</button>
                 <p id="transactionResult"></p>
             </div>
 
@@ -46,4 +47,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="main.js"></script>
 </body>
+
 </html>
