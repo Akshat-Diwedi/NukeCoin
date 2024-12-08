@@ -10,6 +10,8 @@ const firebaseConfig = {
     measurementId: "G-2MCL5LHZW9"
   };
 
+
+
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -22,7 +24,6 @@ const userInfo = document.getElementById('userInfo');
 const userAddress = document.getElementById('userAddress');
 const userBalance = document.getElementById('userBalance');
 const miningProblem = document.getElementById('miningProblem');
-const solutionInput = document.getElementById('solutionInput');
 const mineButton = document.getElementById('mineButton');
 const miningResult = document.getElementById('miningResult');
 const recipientAddress = document.getElementById('recipientAddress');
@@ -38,29 +39,85 @@ function generateWalletAddress() {
     return 'Nuke' + Math.random().toString(36).substr(2, 9);
 }
 
-// Simulate a Proof-of-Work problem
+// --- Constants ---
+const MINING_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds (or a shorter time for testing)
+const REWARD_AMOUNT = 7; // Nukecoin reward
+
+// --- Mining Logic ---
+let miningStartTime = null;
+let miningInterval = null;
+
 function generateMiningProblem() {
-    const difficulty = 2; // Adjust for harder problems
+    const difficulty = 5; // Adjust for harder problems
     const problem = {
         data: Math.random().toString(36).substr(2, 10),
         target: '0'.repeat(difficulty),
-        nonce: 0 // Add a nonce field
+        nonce: 0
     };
 
-    // Update the mining problem on the UI
     miningProblem.textContent = `Find a nonce such that SHA256(data + nonce) starts with ${problem.target}`;
-
-    currentProblem = problem; // Store the current problem
     return problem;
 }
 
-// Verify a solution to the mining problem (using SHA256)
 function verifySolution(problem, solution) {
-    // Concatenate the problem data with the provided solution (nonce)
     const hash = CryptoJS.SHA256(problem.data + solution).toString();
-
-    // Check if the hash starts with the target string
     return hash.startsWith(problem.target);
+}
+
+function startMining() {
+    miningStartTime = Date.now();
+    const problem = generateMiningProblem();
+    let nonce = 0;
+
+    miningResult.textContent = "Mining started...";
+    mineButton.disabled = true; // Disable while mining
+
+    miningInterval = setInterval(() => {
+        const elapsedTime = Date.now() - miningStartTime;
+        if (elapsedTime >= MINING_DURATION) {
+            // Time's up!
+            clearInterval(miningInterval);
+            miningResult.textContent = "Mining time is up!";
+            mineButton.disabled = false;
+            return;
+        }
+
+        // Try a batch of nonces
+        for (let i = 0; i < 10000; i++) { // Adjust batch size as needed
+            if (verifySolution(problem, nonce)) {
+                // Solution found!
+                clearInterval(miningInterval);
+                miningResult.textContent = `Success! Mined ${REWARD_AMOUNT} Nukecoin with nonce: ${nonce}`;
+
+                // Reward the miner
+                const user = auth.currentUser;
+                const userRef = database.ref('users/' + user.uid);
+                userRef.transaction((currentData) => {
+                    if (currentData) {
+                        currentData.balance += REWARD_AMOUNT;
+                    }
+                    return currentData;
+                });
+
+                // Add transaction to blockchain (simulated)
+                const transaction = {
+                    from: "network",
+                    to: userAddress.textContent,
+                    amount: REWARD_AMOUNT
+                };
+                updateBlockchain(transaction);
+
+                mineButton.disabled = false;
+                return;
+            }
+            nonce++;
+        }
+
+        // Update UI with progress (optional)
+        const progress = (elapsedTime / MINING_DURATION) * 100;
+        miningResult.textContent = `Mining... ${progress.toFixed(2)}%`;
+
+    }, 100); // Adjust interval as needed (balance between responsiveness and CPU load)
 }
 
 // --- Firebase Authentication ---
@@ -122,60 +179,6 @@ auth.onAuthStateChanged(user => {
         signInBtn.style.display = "block";
         userInfo.style.display = "none";
     }
-});
-
-// --- Mining Logic ---
-
-let currentProblem = null; // Keep track of the current mining problem
-
-mineButton.addEventListener('click', () => {
-    miningResult.textContent = "Mining..."; // Indicate that mining has started
-
-    if (!currentProblem) {
-        currentProblem = generateMiningProblem();
-    }
-
-    // Use a timeout to simulate mining work and allow UI updates
-    setTimeout(() => {
-        let nonce = 0;
-        while (nonce < 100000) { // Limit the number of attempts for the demo
-            if (verifySolution(currentProblem, nonce)) {
-
-                miningResult.textContent = `Success! Mined 7 Nukecoin with nonce: ${nonce}`;
-
-                // Reward the miner (update balance in Firebase)
-                const user = auth.currentUser;
-                const userRef = database.ref('users/' + user.uid);
-                userRef.transaction((currentData) => {
-                    if (currentData) {
-                        currentData.balance += 7;
-                    }
-                    return currentData;
-                });
-
-                // Add a transaction to the blockchain (simulated)
-                const transaction = {
-                    from: "network", // Coinbase transaction (reward)
-                    to: userAddress.textContent,
-                    amount: 7
-                };
-                updateBlockchain(transaction);
-
-                // Reset mining problem
-                currentProblem = null;
-                solutionInput.value = "";
-                generateMiningProblem();
-
-                return; // Exit the loop after finding a solution
-            }
-            nonce++;
-        }
-
-        // If no solution is found within the limit
-        miningResult.textContent = "Mining failed. Try again.";
-        currentProblem = null; // Reset the problem
-        generateMiningProblem();
-    }, 0);
 });
 
 // --- Transaction Logic ---
@@ -241,3 +244,7 @@ function updateBlockchain(transaction) {
         .then(() => console.log("Block added to blockchain (simulated)"))
         .catch((error) => console.error("Error adding block:", error));
 }
+
+// --- Event Listeners ---
+
+mineButton.addEventListener('click', startMining);
