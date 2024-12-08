@@ -10,8 +10,6 @@ const firebaseConfig = {
     measurementId: "G-2MCL5LHZW9"
   };
 
-
-
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -46,9 +44,10 @@ const REWARD_AMOUNT = 7; // Nukecoin reward
 // --- Mining Logic ---
 let miningStartTime = null;
 let miningInterval = null;
+let totalHashes = 0; // Keep track of the total number of hashes checked
 
 function generateMiningProblem() {
-    const difficulty = 7; // Adjust for harder problems
+    const difficulty = 6; // Adjust difficulty as needed
     const problem = {
         data: Math.random().toString(36).substr(2, 10),
         target: '0'.repeat(difficulty),
@@ -68,6 +67,7 @@ function startMining() {
     miningStartTime = Date.now();
     const problem = generateMiningProblem();
     let nonce = 0;
+    totalHashes = 0; // Reset total hashes
 
     miningResult.textContent = "Mining started...";
     mineButton.disabled = true; // Disable while mining
@@ -83,11 +83,12 @@ function startMining() {
         }
 
         // Try a batch of nonces
+        let hashesCheckedThisBatch = 0;
         for (let i = 0; i < 10000; i++) { // Adjust batch size as needed
             if (verifySolution(problem, nonce)) {
                 // Solution found!
                 clearInterval(miningInterval);
-                miningResult.textContent = `Success! Mined ${REWARD_AMOUNT} Nukecoin with nonce: ${nonce}`;
+                miningResult.textContent = `Success! Mined ${REWARD_AMOUNT} Nukecoin with nonce: ${nonce}. Total hashes checked: ${totalHashes}`;
 
                 // Reward the miner
                 const user = auth.currentUser;
@@ -111,13 +112,15 @@ function startMining() {
                 return;
             }
             nonce++;
+            hashesCheckedThisBatch++;
+            totalHashes++; // Increment the total hash count
         }
 
-        // Update UI with progress (optional)
+        // Update UI with hash count and progress
         const progress = (elapsedTime / MINING_DURATION) * 100;
-        miningResult.textContent = `Mining... ${progress.toFixed(2)}%`;
+        miningResult.textContent = `Mining... ${progress.toFixed(2)}% - Hashes checked: ${totalHashes}`;
 
-    }, 100); // Adjust interval as needed (balance between responsiveness and CPU load)
+    }, 100); // Adjust interval as needed
 }
 
 // --- Firebase Authentication ---
