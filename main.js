@@ -48,7 +48,7 @@ let miningStartTime = null;
 let miningInterval = null;
 
 function generateMiningProblem() {
-    const difficulty = 5; // Adjust for harder problems
+    const difficulty = 500; // Adjust for harder problems
     const problem = {
         data: Math.random().toString(36).substr(2, 10),
         target: '0'.repeat(difficulty),
