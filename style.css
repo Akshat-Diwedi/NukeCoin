@@ -1,34 +1,93 @@
 body {
-    font-family: sans-serif;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
     text-align: center;
 }
 
-#userInfo {
-    margin-top: 20px;
-    border: 1px solid #ccc;
+.container {
+    max-width: 800px;
+    margin: 50px auto;
     padding: 20px;
-    width: 500px;
-    margin-left: auto;
-    margin-right: auto;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
 }
 
-input[type="text"], input[type="number"] {
-    padding: 5px;
-    margin: 5px;
+h1 {
+    color: #007BFF;
+    margin-bottom: 20px;
+}
+
+.wallet-info, .mining-section, .transaction-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.address {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #eee;
+    padding: 5px 10px;
+    border-radius: 5px;
+    word-break: break-all;
+}
+
+.input-field {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin: 10px 0;
     border: 1px solid #ccc;
-    border-radius: 3px;
+    border-radius: 5px;
+    font-size: 16px;
 }
 
-button {
-    padding: 8px 15px;
-    background-color: #4CAF50;
-    color: white;
+.btn {
+    padding: 10px 20px;
+    margin: 10px 0;
     border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    color: #fff;
     cursor: pointer;
-    border-radius: 3px;
-    margin: 5px;
+    transition: background-color 0.3s;
 }
 
-button:hover {
-    background-color: #3e8e41;
+.btn-mine {
+    background-color: #007BFF;
+}
+
+.btn-send {
+    background-color: #28a745;
+}
+
+.btn-mine:hover {
+    background-color: #0056b3;
+}
+
+.btn-send:hover {
+    background-color: #218838;
+}
+.btn {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+#signInBtn {
+    background-color: #dd4b39; /* Google Red */
+}
+#signOutBtn {
+    background-color: #777; /* Gray */
+}
+#mineButton {
+    background-color: #008CBA; /* Blue */
+}
+#sendButton {
+    background-color: #f44336; /* Red */
+}
+.btn:hover {
+    opacity: 0.8;
 }
