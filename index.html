@@ -33,11 +33,14 @@
                 <h2>Send Nukecoin</h2>
                 <input type="text" id="recipientAddress" placeholder="Recipient Address" class="input-field">
                 <input type="number" id="amount" placeholder="Amount" class="input-field">
-                <button id="sendButton" class="btn btn-send">Send Coins</button>
+                <div style="display: flex; align-items: center;">
+                    <button id="sendButton" class="btn btn-send">Send Coins</button>
+                    <button id="signOutBtn" class="btn" style="background: red;">Sign Out</button>
+                </div>
                 <p id="transactionResult"></p>
             </div>
 
-            <button id="signOutBtn" class="btn">Sign Out</button>
+            
         </div>
     </div>
 
