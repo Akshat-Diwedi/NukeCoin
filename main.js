@@ -190,6 +190,19 @@ sendButton.addEventListener('click', () => {
     const recipient = recipientAddress.value;
     const sendAmount = parseFloat(amount.value);
 
+    const sendSound = new Audio('https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3');
+
+    sendSound.play()
+        .then(() => {
+            // Optional: You can add code here to be executed after the sound finishes playing
+            console.log("Send sound played successfully.");
+        })
+        .catch((error) => {
+            // Handle errors, for example, if the sound file cannot be played
+            console.error("Error playing send sound:", error);
+        });
+
+
     const user = auth.currentUser;
     const senderRef = database.ref('users/' + user.uid);
 
