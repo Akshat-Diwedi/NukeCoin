@@ -39,7 +39,7 @@ function generateWalletAddress() {
 
 // --- Constants ---
 const MINING_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds (or a shorter time for testing)
-const REWARD_AMOUNT = 7; // Nukecoin reward
+const REWARD_AMOUNT = 5; // Nukecoin reward
 
 // --- Mining Logic ---
 let miningStartTime = null;
