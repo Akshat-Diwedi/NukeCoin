@@ -149,8 +149,7 @@ function startMining() {
         }
 
         // Try a batch of nonces
-        let hashesCheckedThisBatch = 0;
-        for (let i = 0; i < 10000; i++) { // Adjust batch size as needed
+        for (let i = 0; i < 10000; i++) {
             if (verifySolution(problem, nonce)) {
                 // Solution found!
                 clearInterval(miningInterval);
@@ -158,12 +157,32 @@ function startMining() {
 
                 // Reward the miner
                 const user = auth.currentUser;
-                const userRef = database.ref('users/' + user.uid);
-                userRef.transaction((currentData) => {
+
+                // Use a transaction to update balance and total mined coins atomically
+                database.ref('/').transaction((currentData) => {
                     if (currentData) {
-                        currentData.balance += REWARD_AMOUNT;
+                        if (currentData.users && currentData.users[user.uid]) {
+                            currentData.users[user.uid].balance += REWARD_AMOUNT;
+                        }
+                        currentData.totalCoinsMined = (currentData.totalCoinsMined || 0) + REWARD_AMOUNT;
                     }
                     return currentData;
+                }, (error, committed) => {
+                    if (error) {
+                        console.error('Transaction failed abnormally!', error);
+                    } else if (!committed) {
+                        console.log('We aborted the transaction (because totalCoinsMined already exists).');
+                    } else {
+                        console.log('Mining reward successfully added!');
+                        // Add mining reward to transaction history
+                        const userHistoryRef = database.ref('users/' + user.uid + '/transactionHistory');
+                        userHistoryRef.push({
+                            timestamp: Date.now(),
+                            type: 'mined',
+                            amount: REWARD_AMOUNT,
+                            otherParty: null
+                        });
+                    }
                 });
 
                 // Add transaction to blockchain (simulated)
@@ -174,33 +193,18 @@ function startMining() {
                 };
                 updateBlockchain(transaction);
 
-                // Add mining reward to transaction history
-                const userHistoryRef = database.ref('users/' + user.uid + '/transactionHistory');
-                userHistoryRef.push({
-                    timestamp: Date.now(),
-                    type: 'mined',
-                    amount: REWARD_AMOUNT,
-                    otherParty: null
-                });
-
-                // Update total mined coins in the database
-                database.ref('totalCoinsMined').transaction((currentTotal) => {
-                    return (currentTotal || 0) + REWARD_AMOUNT;
-                });
-
                 mineButton.disabled = false;
                 return;
             }
             nonce++;
-            hashesCheckedThisBatch++;
-            totalHashes++; // Increment the total hash count
+            totalHashes++;
         }
 
         // Update UI with hash count and progress
         const progress = (elapsedTime / MINING_DURATION) * 100;
         miningResult.textContent = `Mining... ${progress.toFixed(2)}% - Hashes checked: ${totalHashes}`;
 
-    }, 100); // Adjust interval as needed
+    }, 100);
 }
 
 // --- Firebase Authentication ---
@@ -278,26 +282,27 @@ auth.onAuthStateChanged(user => {
 sendButton.addEventListener('click', () => {
     const recipient = recipientAddress.value;
     const sendAmount = parseFloat(amount.value);
-    const sendSound = new Audio('https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3');
 
-    sendSound.play()
-        .then(() => {
-            console.log("Send sound played successfully.");
-        })
-        .catch((error) => {
-            console.error("Error playing send sound:", error);
-        });
+    // Input validation
+    if (!recipient || isNaN(sendAmount) || sendAmount <= 0) {
+        transactionResult.textContent = "Please enter a valid recipient address and amount.";
+        return;
+    }
 
     const user = auth.currentUser;
     const senderRef = database.ref('users/' + user.uid);
+    const recipientRef = database.ref('users').orderByChild('address').equalTo(recipient).limitToFirst(1);
 
-    senderRef.transaction((currentData) => {
-        if (currentData && currentData.balance >= sendAmount) {
-            // Deduct from sender's balance
-            currentData.balance -= sendAmount;
+    // Use a transaction to handle the entire send operation
+    senderRef.transaction((senderData) => {
+        if (senderData && senderData.balance >= sendAmount) {
+            // Sufficient balance, proceed with the transaction
 
-            // Add transaction to sender's history
-            const senderHistoryRef = database.ref('users/' + user.uid + '/transactionHistory');
+            // 1. Decrement sender's balance
+            senderData.balance -= sendAmount;
+
+            // 2. Add transaction to sender's history
+            const senderHistoryRef = senderRef.child('transactionHistory');
             senderHistoryRef.push({
                 timestamp: Date.now(),
                 type: 'sent',
@@ -305,47 +310,64 @@ sendButton.addEventListener('click', () => {
                 otherParty: recipient
             });
 
-            // Update recipient's balance and transaction history (simulated transaction)
-            const recipientRef = database.ref('users').orderByChild('address').equalTo(recipient).limitToFirst(1);
-            recipientRef.once('value', (snapshot) => {
-                if (snapshot.exists()) {
-                    snapshot.forEach((childSnapshot) => {
+            // 3. Get recipient's data and update their balance and history
+            recipientRef.once('value', (recipientSnapshot) => {
+                if (recipientSnapshot.exists()) {
+                    recipientSnapshot.forEach((childSnapshot) => {
                         const recipientUserRef = database.ref('users/' + childSnapshot.key);
                         recipientUserRef.transaction((recipientData) => {
                             if (recipientData) {
+                                // Increment recipient's balance
                                 recipientData.balance += sendAmount;
+
+                                // Add transaction to recipient's history
+                                const recipientHistoryRef = recipientUserRef.child('transactionHistory');
+                                recipientHistoryRef.push({
+                                    timestamp: Date.now(),
+                                    type: 'received',
+                                    amount: sendAmount,
+                                    otherParty: senderData.address
+                                });
                             }
                             return recipientData;
                         });
-
-                        // Add transaction to recipient's history
-                        const recipientHistoryRef = database.ref('users/' + childSnapshot.key + '/transactionHistory');
-                        recipientHistoryRef.push({
-                            timestamp: Date.now(),
-                            type: 'received',
-                            amount: sendAmount,
-                            otherParty: currentData.address
-                        });
                     });
-                    transactionResult.textContent = "Transaction successful!";
                 } else {
+                    // If recipient not found, revert sender's balance and history
+                    senderData.balance += sendAmount;
+                    senderHistoryRef.once('child_added', (snapshot) => {
+                        snapshot.ref.remove();
+                    });
                     transactionResult.textContent = "Recipient address not found.";
+                    return;
                 }
             });
 
+            return senderData; // Update sender's data
+
+        } else {
+            // Insufficient balance or other error
+            transactionResult.textContent = "Insufficient balance.";
+            return; // Abort the transaction
+        }
+    }, (error, committed, snapshot) => {
+        if (error) {
+            console.error('Transaction failed abnormally!', error);
+            transactionResult.textContent = "Transaction failed.";
+        } else if (!committed) {
+            console.log('Transaction aborted due to insufficient balance or other error.');
+        } else {
+            console.log('Transaction successful!');
+            transactionResult.textContent = "Transaction successful!";
+
             // Add transaction to blockchain (simulated)
             const transaction = {
-                from: userAddress.textContent,
+                from: snapshot.val().address, // Sender's address
                 to: recipient,
                 amount: sendAmount
             };
             updateBlockchain(transaction);
-
-        } else {
-            transactionResult.textContent = "Insufficient balance.";
         }
-
-        return currentData; // Update sender's data
     });
 });
 
