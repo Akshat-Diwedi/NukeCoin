@@ -42,6 +42,9 @@ const MAX_COIN_SUPPLY = 15000000;
 
 // --- Global Variables ---
 let totalCoinsMined = 0;
+let miningInterval;
+let miningStartTime;
+let totalHashes = 0;
 
 // --- Helper Functions ---
 function generateWalletAddress() {
@@ -57,7 +60,7 @@ function formatDate(timestamp) {
 
 function generateQRCode(text) {
     qrcodeDiv.innerHTML = ""; // Clear previous QR code
-    const qrcode = new QRCode(qrcodeDiv, {
+    new QRCode(qrcodeDiv, {
         text: text,
         width: 128,
         height: 128,
@@ -272,7 +275,7 @@ auth.onAuthStateChanged(user => {
 
 // --- Transaction Logic ---
 
-sendButton.addEventListener('click', () => {
+sendButton.addEventListener('click', async () => {
     const recipient = recipientAddress.value;
     const sendAmount = parseFloat(amount.value);
 
@@ -286,78 +289,59 @@ sendButton.addEventListener('click', () => {
     const senderRef = database.ref('users/' + user.uid);
     const recipientRef = database.ref('users').orderByChild('address').equalTo(recipient).limitToFirst(1);
 
-    // Use a transaction to handle the send operation
-    senderRef.transaction((senderData) => {
-        if (senderData && senderData.balance >= sendAmount) {
-            // Sufficient balance, proceed with decrementing sender's balance
-            senderData.balance -= sendAmount;
-            return senderData;
-        } else {
-            // Insufficient balance or senderData is null
+    try {
+        // Get sender's current balance
+        const senderSnapshot = await senderRef.once('value');
+        const senderData = senderSnapshot.val();
+
+        // Check for sufficient balance
+        if (!senderData || senderData.balance < sendAmount) {
             transactionResult.textContent = "Insufficient balance.";
-            return; // Abort the transaction
+            return;
         }
-    }, (error, committed, senderSnapshot) => {
-        if (error) {
-            console.error('Transaction failed abnormally!', error);
-            transactionResult.textContent = "Transaction failed.";
-        } else if (!committed) {
-            console.log('Transaction aborted due to insufficient balance or sender data not found.');
-        } else {
-            // Sender's balance updated, now proceed with recipient and blockchain
-            recipientRef.once('value', (recipientSnapshot) => {
-                if (recipientSnapshot.exists()) {
-                    recipientSnapshot.forEach((recipientChildSnapshot) => {
-                        const recipientKey = recipientChildSnapshot.key;
-                        const recipientUserRef = database.ref('users/' + recipientKey);
 
-                        recipientUserRef.transaction((recipientData) => {
-                            if (recipientData) {
-                                // Increment recipient's balance
-                                recipientData.balance += sendAmount;
-                                return recipientData;
-                            }
-                            // No need to handle the case where recipientData is null since we already checked for recipientSnapshot.exists()
-                        }, (error, committed) => {
-                            if (error) {
-                                console.error('Recipient update failed!', error);
-                                transactionResult.textContent = "Transaction failed at recipient update.";
-
-                                // Revert sender's balance since recipient update failed
-                                senderRef.transaction((currentData) => {
-                                    if (currentData) {
-                                        currentData.balance += sendAmount;
-                                    }
-                                    return currentData;
-                                });
-                            } else if (committed) {
-                                // Both sender and recipient updated, now update blockchain
-                                const transaction = {
-                                    from: senderSnapshot.val().address,
-                                    to: recipient,
-                                    amount: sendAmount,
-                                    timestamp: Date.now(),
-                                    type: 'sent'
-                                };
-                                updateBlockchain(transaction);
-                                transactionResult.textContent = "Transaction successful!";
-                            }
-                        });
-                    });
-                } else {
-                    transactionResult.textContent = "Recipient address not found.";
-
-                    // Revert sender's balance change since recipient was not found
-                    senderRef.transaction((currentData) => {
-                        if (currentData) {
-                            currentData.balance += sendAmount;
-                        }
-                        return currentData;
-                    });
-                }
-            });
+        // Get recipient's data
+        const recipientSnapshot = await recipientRef.once('value');
+        if (!recipientSnapshot.exists()) {
+            transactionResult.textContent = "Recipient address not found.";
+            return;
         }
-    });
+
+        const recipientKey = Object.keys(recipientSnapshot.val())[0];
+        const recipientUserRef = database.ref('users/' + recipientKey);
+
+        // Update sender's balance
+        await senderRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.balance -= sendAmount;
+            }
+            return currentData;
+        });
+
+        // Update recipient's balance
+        await recipientUserRef.transaction((currentData) => {
+            if (currentData) {
+                currentData.balance += sendAmount;
+            }
+            return currentData;
+        });
+
+        // Update blockchain with transaction
+        const transaction = {
+            from: senderData.address,
+            to: recipient,
+            amount: sendAmount,
+            timestamp: Date.now(),
+            type: 'sent'
+        };
+        updateBlockchain(transaction);
+
+        transactionResult.textContent = "Transaction successful!";
+
+    } catch (error) {
+        console.error('Transaction failed:', error);
+        transactionResult.textContent = "Transaction failed.";
+    }
 });
 
 // --- Blockchain and Mining Limit ---
