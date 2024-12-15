@@ -208,20 +208,15 @@ function startMining() {
 // Handle user sign-in
 signInBtn.addEventListener('click', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithRedirect(provider); // Use redirect instead of popup
-});
-
-// Handle the redirect result on a separate page or after page reload:
-auth.getRedirectResult()
-    .then((result) => {
-        if (result.credential) {
-            // User signed in successfully
+    auth.signInWithPopup(provider)
+        .then((result) => {
+            // User signed in
             console.log("User signed in:", result.user);
-        }
-    })
-    .catch((error) => {
-        console.error("Sign-in error:", error);
-    });
+        })
+        .catch((error) => {
+            console.error("Sign-in error:", error);
+        });
+});
 
 // Handle user sign-out
 signOutBtn.addEventListener('click', () => {
