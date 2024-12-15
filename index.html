@@ -22,10 +22,15 @@
                 <p>Balance : <span id="userBalance"></span></p>
             </div>
 
+            <div class="qr-section">
+                <h2>My QR Code</h2>
+                <div id="qrcode"></div>
+            </div>
+
             <div class="mining-section">
                 <h2>Mining</h2>
-                <p id="miningProblem"></p>
-                <p id="miningResult"></p>
+                <p id="miningProblem">problem</p>
+                <p id="miningResult">doodowjw</p>
                 <button id="mineButton" class="btn btn-mine">Start Mining</button><br><br>
             </div>
 
@@ -33,15 +38,34 @@
                 <h2>Send Nukecoin</h2>
                 <input type="text" id="recipientAddress" placeholder="Recipient Address" class="input-field">
                 <input type="number" id="amount" placeholder="Amount" class="input-field">
-                <div style="display: flex; align-items: center;">
-                    <button id="signOutBtn" class="btn" style="background: #ff4b24;">Sign Out</button>
-                    &nbsp;&nbsp;&nbsp;&nbsp;
-                    <button id="sendButton" class="btn btn-send">Send Coins</button>
-                </div>
+                <button id="sendButton" class="btn btn-send">Send Coins</button>
+                <button id="scanQRButton" class="btn btn-scan">Scan QR</button>
                 <p id="transactionResult"></p>
             </div>
 
-            
+            <div class="qr-scanner" style="display: none;">
+                <h2>Scan QR Code</h2>
+                <video id="qrVideo" width="300" height="200" autoplay></video>
+                <button id="closeScanner" class="btn">Close Scanner</button>
+            </div>
+
+            <div class="transaction-history-section">
+                <h2>Transaction History</h2>
+                <table id="transactionHistory">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Other Party</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <button id="signOutBtn" class="btn">Sign Out</button>
         </div>
     </div>
 
@@ -49,6 +73,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="main.js"></script>
 </body>
 
