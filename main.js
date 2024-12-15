@@ -288,24 +288,26 @@ sendButton.addEventListener('click', () => {
 
     // Use a transaction to handle the send operation
     senderRef.transaction((senderData) => {
-        if (senderData && senderData.balance >= sendAmount) {
-            // Sufficient balance, proceed with the transaction
-
-            // Decrement sender's balance
-            senderData.balance -= sendAmount;
-
-            return senderData; // Update sender's data
+        if (senderData) {
+            // Check for sufficient balance
+            if (senderData.balance >= sendAmount) {
+                // Sufficient balance, proceed with the transaction
+                senderData.balance -= sendAmount;
+                return senderData; // Update sender's data
+            } else {
+                // Insufficient balance
+                transactionResult.textContent = "Insufficient balance.";
+                return; // Abort the transaction (do not update sender's data)
+            }
         } else {
-            // Insufficient balance
-            transactionResult.textContent = "Insufficient balance.";
-            return; // Abort the transaction
+            return; // Abort if senderData is null
         }
     }, (error, committed, senderSnapshot) => {
         if (error) {
             console.error('Transaction failed abnormally!', error);
             transactionResult.textContent = "Transaction failed.";
         } else if (!committed) {
-            console.log('Transaction aborted due to insufficient balance.');
+            console.log('Transaction aborted due to insufficient balance or sender data not found.');
         } else {
             // Sender's balance updated, now update recipient and blockchain
             recipientRef.once('value', (recipientSnapshot) => {
