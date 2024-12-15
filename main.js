@@ -288,19 +288,14 @@ sendButton.addEventListener('click', () => {
 
     // Use a transaction to handle the send operation
     senderRef.transaction((senderData) => {
-        if (senderData) {
-            // Check for sufficient balance
-            if (senderData.balance >= sendAmount) {
-                // Sufficient balance, proceed with the transaction
-                senderData.balance -= sendAmount;
-                return senderData; // Update sender's data
-            } else {
-                // Insufficient balance
-                transactionResult.textContent = "Insufficient balance.";
-                return; // Abort the transaction (do not update sender's data)
-            }
+        if (senderData && senderData.balance >= sendAmount) {
+            // Sufficient balance, proceed with decrementing sender's balance
+            senderData.balance -= sendAmount;
+            return senderData;
         } else {
-            return; // Abort if senderData is null
+            // Insufficient balance or senderData is null
+            transactionResult.textContent = "Insufficient balance.";
+            return; // Abort the transaction
         }
     }, (error, committed, senderSnapshot) => {
         if (error) {
@@ -309,24 +304,34 @@ sendButton.addEventListener('click', () => {
         } else if (!committed) {
             console.log('Transaction aborted due to insufficient balance or sender data not found.');
         } else {
-            // Sender's balance updated, now update recipient and blockchain
+            // Sender's balance updated, now proceed with recipient and blockchain
             recipientRef.once('value', (recipientSnapshot) => {
                 if (recipientSnapshot.exists()) {
-                    recipientSnapshot.forEach((childSnapshot) => {
-                        const recipientKey = childSnapshot.key;
+                    recipientSnapshot.forEach((recipientChildSnapshot) => {
+                        const recipientKey = recipientChildSnapshot.key;
                         const recipientUserRef = database.ref('users/' + recipientKey);
 
                         recipientUserRef.transaction((recipientData) => {
                             if (recipientData) {
                                 // Increment recipient's balance
                                 recipientData.balance += sendAmount;
+                                return recipientData;
                             }
-                            return recipientData;
+                            // No need to handle the case where recipientData is null since we already checked for recipientSnapshot.exists()
                         }, (error, committed) => {
                             if (error) {
                                 console.error('Recipient update failed!', error);
+                                transactionResult.textContent = "Transaction failed at recipient update.";
+
+                                // Revert sender's balance since recipient update failed
+                                senderRef.transaction((currentData) => {
+                                    if (currentData) {
+                                        currentData.balance += sendAmount;
+                                    }
+                                    return currentData;
+                                });
                             } else if (committed) {
-                                // Add transaction to blockchain
+                                // Both sender and recipient updated, now update blockchain
                                 const transaction = {
                                     from: senderSnapshot.val().address,
                                     to: recipient,
@@ -335,7 +340,6 @@ sendButton.addEventListener('click', () => {
                                     type: 'sent'
                                 };
                                 updateBlockchain(transaction);
-
                                 transactionResult.textContent = "Transaction successful!";
                             }
                         });
