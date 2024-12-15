@@ -29,22 +29,82 @@ const amount = document.getElementById('amount');
 const sendButton = document.getElementById('sendButton');
 const transactionResult = document.getElementById('transactionResult');
 const signOutBtn = document.getElementById('signOutBtn');
+const qrcodeDiv = document.getElementById('qrcode');
+const scanQRButton = document.getElementById('scanQRButton');
+const qrVideo = document.getElementById('qrVideo');
+const closeScannerButton = document.getElementById('closeScanner');
+const transactionHistoryTbody = document.getElementById('transactionHistory').getElementsByTagName('tbody')[0];
+
+// --- Constants ---
+const MINING_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const REWARD_AMOUNT = 5; // Nukecoin reward
+const MAX_COIN_SUPPLY = 15000000;
+
+// --- Global Variables ---
+let totalCoinsMined = 0;
 
 // --- Helper Functions ---
-
-// Generate a simple wallet address (NOT SECURE for real use)
 function generateWalletAddress() {
     return 'Nuke' + Math.random().toString(36).substr(2, 9);
 }
 
-// --- Constants ---
-const MINING_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds (or a shorter time for testing)
-const REWARD_AMOUNT = 5; // Nukecoin reward
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+}
+
+// --- QR Code Generation ---
+
+function generateQRCode(text) {
+    qrcodeDiv.innerHTML = ""; // Clear previous QR code
+    const qrcode = new QRCode(qrcodeDiv, {
+        text: text,
+        width: 128,
+        height: 128,
+    });
+}
+
+// --- QR Code Scanning ---
+
+function startQRScanner() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function (stream) {
+            qrVideo.srcObject = stream;
+            qrVideo.play();
+
+            const qrCodeScanner = setInterval(() => {
+                const canvasElement = document.createElement('canvas');
+                const canvas = canvasElement.getContext('2d');
+                canvasElement.width = qrVideo.videoWidth;
+                canvasElement.height = qrVideo.videoHeight;
+                canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    clearInterval(qrCodeScanner);
+                    recipientAddress.value = code.data;
+                    closeQRScanner(); // Close the scanner after successful scan
+                    console.log("QR Code data:", code.data);
+                }
+            }, 500); // Scan every 500ms
+        })
+        .catch(function (err) {
+            console.error("Error accessing camera:", err);
+        });
+}
+
+function closeQRScanner() {
+    const stream = qrVideo.srcObject;
+    if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        qrVideo.srcObject = null;
+    }
+    document.querySelector('.qr-scanner').style.display = 'none';
+}
 
 // --- Mining Logic ---
-let miningStartTime = null;
-let miningInterval = null;
-let totalHashes = 0; // Keep track of the total number of hashes checked
 
 function generateMiningProblem() {
     const difficulty = 6; // Adjust difficulty as needed
@@ -64,6 +124,12 @@ function verifySolution(problem, solution) {
 }
 
 function startMining() {
+    if (totalCoinsMined + REWARD_AMOUNT > MAX_COIN_SUPPLY) {
+        miningResult.textContent = "Maximum coin supply reached. Mining is no longer available.";
+        mineButton.disabled = true;
+        return;
+    }
+
     miningStartTime = Date.now();
     const problem = generateMiningProblem();
     let nonce = 0;
@@ -107,6 +173,20 @@ function startMining() {
                     amount: REWARD_AMOUNT
                 };
                 updateBlockchain(transaction);
+
+                // Add mining reward to transaction history
+                const userHistoryRef = database.ref('users/' + user.uid + '/transactionHistory');
+                userHistoryRef.push({
+                    timestamp: Date.now(),
+                    type: 'mined',
+                    amount: REWARD_AMOUNT,
+                    otherParty: null
+                });
+
+                // Update total mined coins in the database
+                database.ref('totalCoinsMined').transaction((currentTotal) => {
+                    return (currentTotal || 0) + REWARD_AMOUNT;
+                });
 
                 mineButton.disabled = false;
                 return;
@@ -161,21 +241,30 @@ auth.onAuthStateChanged(user => {
         const userRef = database.ref('users/' + user.uid);
         userRef.once('value', (snapshot) => {
             if (!snapshot.exists()) {
-                // New user: generate address ONCE and store it
+                // New user: generate address and set initial data
                 const userAddressValue = generateWalletAddress();
                 userRef.set({
                     address: userAddressValue,
-                    balance: 0, // Initial balance
+                    balance: 0
                 });
                 userAddress.textContent = userAddressValue;
                 userBalance.textContent = 0;
+
+                // Generate QR code for the new user
+                generateQRCode(userAddressValue);
             } else {
-                // Existing user: retrieve the address
+                // Existing user: retrieve data
                 const userData = snapshot.val();
-                userAddress.textContent = userData.address; // Address is read-only
+                userAddress.textContent = userData.address;
                 userBalance.textContent = userData.balance;
+
+                // Generate QR code for the existing user
+                generateQRCode(userData.address);
             }
         });
+
+        // Load transaction history
+        loadTransactionHistory(user.uid);
 
     } else {
         // User is signed out
@@ -189,19 +278,15 @@ auth.onAuthStateChanged(user => {
 sendButton.addEventListener('click', () => {
     const recipient = recipientAddress.value;
     const sendAmount = parseFloat(amount.value);
-
     const sendSound = new Audio('https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3');
 
     sendSound.play()
         .then(() => {
-            // Optional: You can add code here to be executed after the sound finishes playing
             console.log("Send sound played successfully.");
         })
         .catch((error) => {
-            // Handle errors, for example, if the sound file cannot be played
             console.error("Error playing send sound:", error);
         });
-
 
     const user = auth.currentUser;
     const senderRef = database.ref('users/' + user.uid);
@@ -211,7 +296,16 @@ sendButton.addEventListener('click', () => {
             // Deduct from sender's balance
             currentData.balance -= sendAmount;
 
-            // Update recipient's balance (simulated transaction)
+            // Add transaction to sender's history
+            const senderHistoryRef = database.ref('users/' + user.uid + '/transactionHistory');
+            senderHistoryRef.push({
+                timestamp: Date.now(),
+                type: 'sent',
+                amount: sendAmount,
+                otherParty: recipient
+            });
+
+            // Update recipient's balance and transaction history (simulated transaction)
             const recipientRef = database.ref('users').orderByChild('address').equalTo(recipient).limitToFirst(1);
             recipientRef.once('value', (snapshot) => {
                 if (snapshot.exists()) {
@@ -222,6 +316,15 @@ sendButton.addEventListener('click', () => {
                                 recipientData.balance += sendAmount;
                             }
                             return recipientData;
+                        });
+
+                        // Add transaction to recipient's history
+                        const recipientHistoryRef = database.ref('users/' + childSnapshot.key + '/transactionHistory');
+                        recipientHistoryRef.push({
+                            timestamp: Date.now(),
+                            type: 'received',
+                            amount: sendAmount,
+                            otherParty: currentData.address
                         });
                     });
                     transactionResult.textContent = "Transaction successful!";
@@ -246,21 +349,54 @@ sendButton.addEventListener('click', () => {
     });
 });
 
-// --- Simulated Blockchain Interaction ---
+// --- Blockchain and Mining Limit ---
 
 function updateBlockchain(transaction) {
     const newBlock = {
         timestamp: Date.now(),
         transaction: transaction
-        // Add other block data like previous hash, nonce (for a more realistic blockchain)
     };
 
-    // Push the new block to Firebase (simulating adding to a blockchain)
     database.ref('blockchain').push(newBlock)
         .then(() => console.log("Block added to blockchain (simulated)"))
         .catch((error) => console.error("Error adding block:", error));
 }
 
+// Initialize totalCoinsMined from the database
+database.ref('totalCoinsMined').once('value', (snapshot) => {
+    totalCoinsMined = snapshot.val() || 0;
+});
+
+// --- Transaction History ---
+
+function loadTransactionHistory(userId) {
+    const transactionHistoryRef = database.ref('users/' + userId + '/transactionHistory');
+    transactionHistoryRef.on('value', (snapshot) => {
+        transactionHistoryTbody.innerHTML = ""; // Clear previous history
+
+        snapshot.forEach((childSnapshot) => {
+            const transaction = childSnapshot.val();
+            const row = transactionHistoryTbody.insertRow();
+            const dateTimeCell = row.insertCell();
+            const typeCell = row.insertCell();
+            const amountCell = row.insertCell();
+            const otherPartyCell = row.insertCell();
+
+            dateTimeCell.textContent = formatDate(transaction.timestamp);
+            typeCell.textContent = transaction.type;
+            amountCell.textContent = transaction.amount;
+            otherPartyCell.textContent = transaction.otherParty || '-';
+        });
+    });
+}
+
 // --- Event Listeners ---
 
 mineButton.addEventListener('click', startMining);
+
+scanQRButton.addEventListener('click', () => {
+    document.querySelector('.qr-scanner').style.display = 'block';
+    startQRScanner();
+});
+
+closeScannerButton.addEventListener('click', closeQRScanner);
